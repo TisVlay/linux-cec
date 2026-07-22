@@ -1513,22 +1513,7 @@ mod test_set_timer_program_title {
         instance: Message::SetTimerProgramTitle {
             title: operand::BufferOperand::from_str("12345678901234").unwrap(),
         },
-        bytes: [
-            b'1',
-            b'2',
-            b'3',
-            b'4',
-            b'5',
-            b'6',
-            b'7',
-            b'8',
-            b'9',
-            b'0',
-            b'1',
-            b'2',
-            b'3',
-            b'4'
-        ],
+        bytes: b"12345678901234",
     }
 
     #[test]
@@ -1884,22 +1869,7 @@ mod test_vendor_command {
         instance: Message::VendorCommand {
             command: operand::BufferOperand::from_str("12345678901234").unwrap(),
         },
-        bytes: [
-            b'1',
-            b'2',
-            b'3',
-            b'4',
-            b'5',
-            b'6',
-            b'7',
-            b'8',
-            b'9',
-            b'0',
-            b'1',
-            b'2',
-            b'3',
-            b'4'
-        ],
+        bytes: b"12345678901234",
     }
 
     #[test]
@@ -1998,22 +1968,7 @@ mod test_vendor_remote_button_down {
         instance: Message::VendorRemoteButtonDown {
             rc_code: operand::BufferOperand::from_str("12345678901234").unwrap(),
         },
-        bytes: [
-            b'1',
-            b'2',
-            b'3',
-            b'4',
-            b'5',
-            b'6',
-            b'7',
-            b'8',
-            b'9',
-            b'0',
-            b'1',
-            b'2',
-            b'3',
-            b'4'
-        ],
+        bytes: b"12345678901234",
     }
 
     #[test]
@@ -2111,22 +2066,7 @@ mod test_set_osd_name {
         instance: Message::SetOsdName {
             name: operand::BufferOperand::from_str("12345678901234").unwrap(),
         },
-        bytes: [
-            b'1',
-            b'2',
-            b'3',
-            b'4',
-            b'5',
-            b'6',
-            b'7',
-            b'8',
-            b'9',
-            b'0',
-            b'1',
-            b'2',
-            b'3',
-            b'4'
-        ],
+        bytes: b"12345678901234",
     }
 
     #[test]

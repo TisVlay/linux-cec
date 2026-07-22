@@ -6,12 +6,13 @@
 use heck::AsSnakeCase;
 use proc_macro::TokenStream;
 use proc_macro2::{Punct, TokenStream as TokenStream2};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
 use std::collections::HashSet;
 use syn::parse::{self, Parse, ParseStream};
+use syn::token::Bracket;
 use syn::{
     parse_macro_input, parse_str, Data, DataEnum, DeriveInput, Expr, ExprArray, ExprLit, ExprPath,
-    Field, Fields, FieldsUnnamed, Ident, Lit, LitInt, Meta, Type, TypeArray,
+    Field, Fields, FieldsUnnamed, Ident, Lit, LitByteStr, LitInt, Meta, Type, TypeArray,
 };
 
 macro_rules! bail {
@@ -746,11 +747,42 @@ pub fn bitfield_specifier(input: TokenStream) -> TokenStream {
     .into()
 }
 
+enum BytesFormat {
+    Array(ExprArray),
+    ByteStr(LitByteStr),
+}
+
+impl ToTokens for BytesFormat {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        match self {
+            BytesFormat::Array(array) => array.to_tokens(tokens),
+            BytesFormat::ByteStr(bytestr) => {
+                tokens.extend(quote!((*#bytestr)));
+            }
+        }
+    }
+}
+
+impl Parse for BytesFormat {
+    fn parse(input: ParseStream<'_>) -> parse::Result<BytesFormat> {
+        if input.peek(Bracket) {
+            Ok(BytesFormat::Array(input.parse()?))
+        } else if input.peek(LitByteStr) {
+            Ok(BytesFormat::ByteStr(input.parse()?))
+        } else {
+            Err(parse::Error::new(
+                input.span(),
+                "Expected `[` or byte string",
+            ))
+        }
+    }
+}
+
 struct CodecTest {
     name: Option<Ident>,
     ty: Type,
     instance: Expr,
-    bytes: ExprArray,
+    bytes: BytesFormat,
     extra: HashSet<String>,
 }
 
