@@ -146,6 +146,15 @@ impl UInputDevice {
         self.send_key_event(*key, KeyState::RELEASED)
     }
 
+    pub(crate) fn key_repeat(&mut self, uikey: UiCommand) -> Result<()> {
+        let Some(key) = self.mappings.get(&uikey) else {
+            debug!("Mapping for {uikey} not found");
+            return Ok(());
+        };
+
+        self.send_key_event(*key, KeyState::AUTOREPEAT)
+    }
+
     #[cfg(test)]
     pub(crate) fn get_next_event(&mut self) -> Option<InputEvent> {
         self.queue.pop_front()
