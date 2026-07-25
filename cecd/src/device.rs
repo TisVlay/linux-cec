@@ -895,6 +895,7 @@ impl KeyRepeat {
 mod test {
     use super::*;
 
+    use anyhow::ensure;
     use cecd_proxy::CecDevice1Proxy;
     use input_linux::{EventKind, Key, KeyEvent, KeyState};
     use linux_cec::device::Capabilities;
@@ -906,7 +907,40 @@ mod test {
     use tokio_stream::StreamExt;
 
     use crate::config::Config;
-    use crate::testing::{rx_message, setup_basic_test, setup_dbus_test, tx_message, wait_timeout};
+    use crate::testing::{
+        rx_message, setup_basic_test, setup_dbus_test, tx_message, wait_timeout, DBusTest,
+    };
+
+    fn is_key_event(uinput: &mut UInputDevice, key: Key, state: KeyState) -> Result<()> {
+        let event = uinput
+            .get_next_event()
+            .ok_or(anyhow!("Event queue empty"))?;
+        let key_event = KeyEvent::try_from(event)?;
+        ensure!(key_event.key == key);
+        ensure!(key_event.value == state);
+
+        ensure!(uinput.get_next_event().unwrap().kind == EventKind::Synchronize);
+        Ok(())
+    }
+
+    async fn queue_rx_key_down(test: &DBusTest<'_>, ui_command: UiCommand) {
+        test.dev
+            .lock()
+            .await
+            .queue_rx_message(
+                Message::UserControlPressed { ui_command },
+                LogicalAddress::Tv,
+            )
+            .await;
+    }
+
+    async fn queue_rx_key_up(test: &DBusTest<'_>) {
+        test.dev
+            .lock()
+            .await
+            .queue_rx_message(Message::UserControlReleased {}, LogicalAddress::Tv)
+            .await;
+    }
 
     #[tokio::test]
     async fn test_tx_basic() {
@@ -1414,21 +1448,8 @@ mod test {
         };
         let test = setup_dbus_test(cb, Some(config)).await.unwrap();
 
-        test.dev
-            .lock()
-            .await
-            .queue_rx_message(
-                Message::UserControlPressed {
-                    ui_command: UiCommand::Enter,
-                },
-                LogicalAddress::Tv,
-            )
-            .await;
-        test.dev
-            .lock()
-            .await
-            .queue_rx_message(Message::UserControlReleased {}, LogicalAddress::Tv)
-            .await;
+        queue_rx_key_down(&test, UiCommand::Enter).await;
+        queue_rx_key_up(&test).await;
         let notify = test.dev.lock().await.rx_queue_empty().await.unwrap();
         notify.notified().await;
 
@@ -1440,25 +1461,8 @@ mod test {
             .unwrap();
         let mut dbus_obj = interface.get_mut().await;
         let uinput = dbus_obj.uinput.as_mut().unwrap();
-        let event = uinput.get_next_event().unwrap();
-        let key = KeyEvent::try_from(event).unwrap();
-        assert_eq!(key.key, Key::Enter);
-        assert_eq!(key.value, KeyState::PRESSED);
-
-        assert_eq!(
-            uinput.get_next_event().unwrap().kind,
-            EventKind::Synchronize
-        );
-
-        let event = uinput.get_next_event().unwrap();
-        let key = KeyEvent::try_from(event).unwrap();
-        assert_eq!(key.key, Key::Enter);
-        assert_eq!(key.value, KeyState::RELEASED);
-
-        assert_eq!(
-            uinput.get_next_event().unwrap().kind,
-            EventKind::Synchronize
-        );
+        is_key_event(uinput, Key::Enter, KeyState::PRESSED).unwrap();
+        is_key_event(uinput, Key::Enter, KeyState::RELEASED).unwrap();
     }
 
     #[tokio::test]
@@ -1477,21 +1481,8 @@ mod test {
         };
         let test = setup_dbus_test(cb, Some(config)).await.unwrap();
 
-        test.dev
-            .lock()
-            .await
-            .queue_rx_message(
-                Message::UserControlPressed {
-                    ui_command: UiCommand::Back,
-                },
-                LogicalAddress::Tv,
-            )
-            .await;
-        test.dev
-            .lock()
-            .await
-            .queue_rx_message(Message::UserControlReleased {}, LogicalAddress::Tv)
-            .await;
+        queue_rx_key_down(&test, UiCommand::Back).await;
+        queue_rx_key_up(&test).await;
         let notify = test.dev.lock().await.rx_queue_empty().await.unwrap();
         notify.notified().await;
 
@@ -1522,31 +1513,9 @@ mod test {
         };
         let test = setup_dbus_test(cb, Some(config)).await.unwrap();
 
-        test.dev
-            .lock()
-            .await
-            .queue_rx_message(
-                Message::UserControlPressed {
-                    ui_command: UiCommand::Enter,
-                },
-                LogicalAddress::Tv,
-            )
-            .await;
-        test.dev
-            .lock()
-            .await
-            .queue_rx_message(
-                Message::UserControlPressed {
-                    ui_command: UiCommand::Back,
-                },
-                LogicalAddress::Tv,
-            )
-            .await;
-        test.dev
-            .lock()
-            .await
-            .queue_rx_message(Message::UserControlReleased {}, LogicalAddress::Tv)
-            .await;
+        queue_rx_key_down(&test, UiCommand::Enter).await;
+        queue_rx_key_down(&test, UiCommand::Back).await;
+        queue_rx_key_up(&test).await;
         let notify = test.dev.lock().await.rx_queue_empty().await.unwrap();
         notify.notified().await;
 
@@ -1558,45 +1527,11 @@ mod test {
             .unwrap();
         let mut dbus_obj = interface.get_mut().await;
         let uinput = dbus_obj.uinput.as_mut().unwrap();
-        let event = uinput.get_next_event().unwrap();
-        let key = KeyEvent::try_from(event).unwrap();
-        assert_eq!(key.key, Key::Enter);
-        assert_eq!(key.value, KeyState::PRESSED);
+        is_key_event(uinput, Key::Enter, KeyState::PRESSED).unwrap();
+        is_key_event(uinput, Key::Enter, KeyState::RELEASED).unwrap();
 
-        assert_eq!(
-            uinput.get_next_event().unwrap().kind,
-            EventKind::Synchronize
-        );
-
-        let event = uinput.get_next_event().unwrap();
-        let key = KeyEvent::try_from(event).unwrap();
-        assert_eq!(key.key, Key::Enter);
-        assert_eq!(key.value, KeyState::RELEASED);
-
-        assert_eq!(
-            uinput.get_next_event().unwrap().kind,
-            EventKind::Synchronize
-        );
-
-        let event = uinput.get_next_event().unwrap();
-        let key = KeyEvent::try_from(event).unwrap();
-        assert_eq!(key.key, Key::Exit);
-        assert_eq!(key.value, KeyState::PRESSED);
-
-        assert_eq!(
-            uinput.get_next_event().unwrap().kind,
-            EventKind::Synchronize
-        );
-
-        let event = uinput.get_next_event().unwrap();
-        let key = KeyEvent::try_from(event).unwrap();
-        assert_eq!(key.key, Key::Exit);
-        assert_eq!(key.value, KeyState::RELEASED);
-
-        assert_eq!(
-            uinput.get_next_event().unwrap().kind,
-            EventKind::Synchronize
-        );
+        is_key_event(uinput, Key::Exit, KeyState::PRESSED).unwrap();
+        is_key_event(uinput, Key::Exit, KeyState::RELEASED).unwrap();
     }
 
     #[tokio::test]
