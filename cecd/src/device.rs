@@ -1450,8 +1450,10 @@ mod test {
 
         queue_rx_key_down(&test, UiCommand::Enter).await;
         queue_rx_key_up(&test).await;
-        let notify = test.dev.lock().await.rx_queue_empty().await.unwrap();
-        notify.notified().await;
+        let notify = test.dev.lock().await.rx_queue_empty().await;
+        if let Some(notify) = notify {
+            notify.notified().await;
+        }
 
         let interface: InterfaceRef<CecDevice> = test
             .connection
@@ -1483,8 +1485,10 @@ mod test {
 
         queue_rx_key_down(&test, UiCommand::Back).await;
         queue_rx_key_up(&test).await;
-        let notify = test.dev.lock().await.rx_queue_empty().await.unwrap();
-        notify.notified().await;
+        let notify = test.dev.lock().await.rx_queue_empty().await;
+        if let Some(notify) = notify {
+            notify.notified().await;
+        }
 
         let interface: InterfaceRef<CecDevice> = test
             .connection
@@ -1516,8 +1520,10 @@ mod test {
         queue_rx_key_down(&test, UiCommand::Enter).await;
         queue_rx_key_down(&test, UiCommand::Back).await;
         queue_rx_key_up(&test).await;
-        let notify = test.dev.lock().await.rx_queue_empty().await.unwrap();
-        notify.notified().await;
+        let notify = test.dev.lock().await.rx_queue_empty().await;
+        if let Some(notify) = notify {
+            notify.notified().await;
+        }
 
         let interface: InterfaceRef<CecDevice> = test
             .connection
