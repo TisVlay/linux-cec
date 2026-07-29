@@ -487,7 +487,14 @@ pub(crate) struct DBusTest<'a> {
     pub connection: Connection,
     pub system: SystemHandle,
     pub dbus: MockDBus,
+    pub token: CancellationToken,
     _guard: DefaultGuard,
+}
+
+impl Drop for DBusTest<'_> {
+    fn drop(&mut self) {
+        self.token.cancel();
+    }
 }
 
 pub(crate) async fn setup_dbus_test<F, Fut>(
@@ -559,6 +566,7 @@ where
         connection,
         system,
         dbus,
+        token,
         _guard: guard,
     })
 }

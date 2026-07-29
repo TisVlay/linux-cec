@@ -23,6 +23,18 @@ use tokio::fs::{read_dir, read_to_string};
 use tracing::{debug, error};
 use xdg::BaseDirectories;
 
+#[derive(Debug, Copy, Clone, Deserialize, Default)]
+#[serde(rename_all(deserialize = "kebab-case"))]
+pub enum RepeatType {
+    #[default]
+    /// When a key is repeated, send a repeat event
+    Repeat,
+    /// When a key is repeated, send separate up and down events
+    Cycle,
+    /// Key repeats are ignored
+    Disabled,
+}
+
 fn de_mappings<'de, D>(deserializer: D) -> Result<HashMap<UiCommand, Key>, D::Error>
 where
     D: Deserializer<'de>,
@@ -87,6 +99,14 @@ pub(crate) struct Config {
     /// Should uinput mappings be enabled. Defaults to true.
     #[serde(default = "de_true")]
     pub uinput: bool,
+    /// How should the uinput mappings handle repeated commands.
+    /// Defaults to [RepeatType::Repeat].
+    #[serde(default)]
+    pub uinput_repeat: RepeatType,
+    /// Should repeated commands be debounced for uinput, and over what period, in millseconds.
+    /// Defaults to 0 (disable debouncing).
+    #[serde(default)]
+    pub uinput_debounce: u32,
     /// Should cecd attempt to determine if it's the active source when it wakes up or starts.
     /// In theory we should always have this enabled, but due to shortcomings of the HDMI-CEC
     /// protocol, it is unreliable and can erroneously determine we're active when we're not.
