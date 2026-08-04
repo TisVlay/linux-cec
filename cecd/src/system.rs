@@ -14,7 +14,7 @@ use std::collections::hash_map::{Entry, HashMap};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::fs::read_dir;
 use tokio::spawn;
 use tokio::sync::broadcast::{channel, Receiver, Sender};
@@ -36,6 +36,8 @@ use crate::device::DrmConnector;
 use crate::message_handler::{MessageHandler, MessageHandlerTask};
 use crate::ArcDevice;
 
+const RESUME_WAKE_TIMEOUT: Duration = Duration::from_secs(5);
+
 #[derive(Debug)]
 pub(crate) struct System {
     osd_name: String,
@@ -49,6 +51,7 @@ pub(crate) struct System {
     token: CancellationToken,
     devs: HashMap<PathBuf, CancellationToken>,
     standby: bool,
+    resume_wake_deadline: Option<Instant>,
 
     message_handlers: HashMap<u8, MessageHandlerHandle>,
 }
@@ -217,6 +220,7 @@ impl System {
             channel,
             config_path,
             standby: false,
+            resume_wake_deadline: None,
             message_handlers: HashMap::new(),
         })
     }
@@ -430,6 +434,25 @@ impl System {
         let _ = self.channel.send(message);
     }
 
+    fn prepare_for_resume(&mut self) -> bool {
+        self.standby = false;
+        let wake_tv = self.config.wake_tv;
+        self.resume_wake_deadline = wake_tv.then(|| Instant::now() + RESUME_WAKE_TIMEOUT);
+        wake_tv
+    }
+
+    pub(crate) fn take_resume_wake(&mut self) -> bool {
+        let Some(deadline) = self.resume_wake_deadline.take() else {
+            return false;
+        };
+        Instant::now() < deadline
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_resume_wake_deadline_for_test(&mut self, deadline: Option<Instant>) {
+        self.resume_wake_deadline = deadline;
+    }
+
     async fn find_physical_address() -> Result<Option<DrmConnector>> {
         let mut adapter = None;
         let mut dir = read_dir("/sys/class/drm").await?;
@@ -530,8 +553,7 @@ impl SystemHandle {
             };
             let mut system = self.lock().await;
             if !sleep {
-                system.standby = false;
-                let wake_tv = system.config.wake_tv;
+                let wake_tv = system.prepare_for_resume();
                 debug!(
                     "Woke from standby. {} TV.",
                     if wake_tv { "Waking" } else { "Not waking" }
@@ -808,6 +830,55 @@ mod test {
         let test = setup_dbus_test(cb, None).await.unwrap();
 
         assert!(test.system.list_handled_messages().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_resume_wake_deadline_set_on_resume() {
+        for wake_tv in [true, false] {
+            let test = setup_dbus_test(cb, None).await.unwrap();
+            let mut system = test.system.lock().await;
+            system.standby = true;
+
+            assert!(system.resume_wake_deadline.is_none());
+            system.config.wake_tv = wake_tv;
+            assert_eq!(system.prepare_for_resume(), wake_tv);
+            assert!(!system.standby);
+            assert_eq!(system.resume_wake_deadline.is_some(), wake_tv);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_resume_wake_claimed_only_by_new_device_configuration() {
+        let test = setup_dbus_test(cb, None).await.unwrap();
+        let mut system = test.system.lock().await;
+
+        system.resume_wake_deadline = Some(Instant::now() + RESUME_WAKE_TIMEOUT);
+        system.configure_dev(test.dev.clone(), None).await.unwrap();
+        assert!(system.resume_wake_deadline.is_some());
+        assert!(system.take_resume_wake());
+
+        assert!(!system.take_resume_wake());
+
+        system.resume_wake_deadline = Some(Instant::now());
+        assert!(!system.take_resume_wake());
+    }
+
+    #[tokio::test]
+    async fn test_failed_new_device_configuration_preserves_resume_wake() {
+        let test = setup_dbus_test(cb, None).await.unwrap();
+        test.dev.lock().await.set_caps(Capabilities::empty());
+        let mut system = test.system.lock().await;
+
+        system.resume_wake_deadline = Some(Instant::now() + RESUME_WAKE_TIMEOUT);
+        assert!(system.configure_dev(test.dev.clone(), None).await.is_err());
+        assert!(system.resume_wake_deadline.is_some());
+
+        test.dev
+            .lock()
+            .await
+            .set_caps(Capabilities::LOG_ADDRS | Capabilities::TRANSMIT);
+        system.configure_dev(test.dev.clone(), None).await.unwrap();
+        assert!(system.take_resume_wake());
     }
 
     #[tokio::test]

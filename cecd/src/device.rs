@@ -52,6 +52,7 @@ pub struct DeviceTask {
     path: OwnedObjectPath,
     log_addr_try: i32,
     awaiting_wake: bool,
+    pending_resume_wake: bool,
     poller: AsyncDevicePoller,
     active: bool,
     connector: Option<DrmConnector>,
@@ -121,11 +122,13 @@ impl DeviceTask {
             path = OwnedObjectPath::from(dbus_obj.dbus_path().clone());
         }
         let poller = device.lock().await.get_poller().await?;
-        let connector = system
-            .lock()
-            .await
-            .configure_dev(device.clone(), None)
-            .await?;
+        let connector;
+        let pending_resume_wake;
+        {
+            let mut system = system.lock().await;
+            connector = system.configure_dev(device.clone(), None).await?;
+            pending_resume_wake = system.take_resume_wake();
+        }
         let (tx, rx) = unbounded_channel();
         let mut ui_key_task =
             UInputKeyTask::new(rx, token.clone(), system.clone(), interface.clone());
@@ -143,6 +146,7 @@ impl DeviceTask {
             path,
             log_addr_try: LOG_ADDR_RETRIES,
             awaiting_wake: false,
+            pending_resume_wake,
             poller,
             active: false,
             connector,
@@ -156,7 +160,9 @@ impl DeviceTask {
     pub async fn run(mut self) -> Result<()> {
         // On startup, we should try to figure out if there's an audio system attached
         self.query_audio_system();
-        if self.system.lock().await.config.request_active_source {
+        if self.pending_resume_wake {
+            self.replay_resume_wake().await;
+        } else if self.system.lock().await.config.request_active_source {
             self.with_logical_address(Box::new(|this| Box::new(this.pending_activate())))
                 .await;
         }
@@ -212,6 +218,20 @@ impl DeviceTask {
         let object_server = self.connection.object_server();
         object_server.remove::<CecDevice, _>(path).await?;
         Ok(())
+    }
+
+    async fn replay_resume_wake(&mut self) {
+        self.pending_resume_wake = false;
+        let wake_tv = self.system.lock().await.config.wake_tv;
+        if let Err(err) = self
+            .handle_system_message(SystemMessage::Wake {
+                wake_tv,
+                from_standby: true,
+            })
+            .await
+        {
+            error!("Resume wake failed: {err}");
+        }
     }
 
     async fn handle_poll_result(&mut self, result: PollResult) -> Result<()> {
@@ -2339,6 +2359,54 @@ mod test {
                 LogicalAddress::Broadcast
             )
         );
+    }
+
+    #[tokio::test]
+    async fn test_resume_wake_replay_uses_current_config() {
+        for wake_tv in [true, false] {
+            let test = setup_basic_test().await.unwrap();
+            {
+                let mut system = test.system.lock().await;
+                system.set_resume_wake_deadline_for_test(Some(
+                    std::time::Instant::now() + Duration::from_secs(5),
+                ));
+                system.config.wake_tv = wake_tv;
+            }
+
+            let interface: InterfaceRef<CecDevice> = test
+                .connection
+                .object_server()
+                .interface("/com/steampowered/CecDaemon1/Devices/Null")
+                .await
+                .unwrap();
+            let broadcast_receiver = test.system.lock().await.subscribe();
+            let (_, unicast_receiver) = unbounded_channel();
+            let mut task = DeviceTask::new(
+                interface,
+                test.system.clone(),
+                broadcast_receiver,
+                unicast_receiver,
+                test.connection.clone(),
+            )
+            .await
+            .unwrap();
+            task.replay_resume_wake().await;
+
+            assert_eq!(
+                test.dev.lock().await.wake_count().await,
+                if wake_tv { 1 } else { 0 }
+            );
+            assert_eq!(
+                rx_message(&test.dev).await,
+                Some((
+                    Message::ReportPowerStatus {
+                        status: PowerStatus::On,
+                    },
+                    LogicalAddress::Broadcast,
+                ))
+            );
+            assert!(!task.pending_resume_wake);
+        }
     }
 
     #[tokio::test]

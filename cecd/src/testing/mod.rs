@@ -56,6 +56,7 @@ struct DeviceState {
     rx_queue: VecDeque<Envelope>,
     rx_empty: Vec<Arc<Notify>>,
     sequence: u32,
+    wake_count: usize,
 }
 
 #[derive(Debug)]
@@ -100,6 +101,7 @@ impl AsyncDevice {
                 rx_queue: VecDeque::new(),
                 rx_empty: Vec::new(),
                 sequence: 1,
+                wake_count: 0,
             }),
         })
     }
@@ -376,7 +378,12 @@ impl AsyncDevice {
     }
 
     pub async fn wake(&self, _set_active: bool, _text_view: bool) -> Result<()> {
-        todo!();
+        self.state.write().await.wake_count += 1;
+        Err(Error::Unsupported)
+    }
+
+    pub(crate) async fn wake_count(&self) -> usize {
+        self.state.read().await.wake_count
     }
 
     pub async fn standby(&self, target: LogicalAddress) -> Result<()> {
