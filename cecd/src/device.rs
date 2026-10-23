@@ -11,7 +11,7 @@ use linux_cec::{Error, LogicalAddress, PhysicalAddress, TxError};
 use std::ffi::OsStr;
 use std::future::Future;
 use std::io::{self, ErrorKind};
-use std::mem::drop;
+use std::mem::{drop, take};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tokio::fs::{read, read_dir, read_to_string};
@@ -289,11 +289,7 @@ impl DeviceTask {
                     iface.logical_addresses_changed(emitter).await?;
                     if !iface.cached_log_addrs.is_empty() {
                         drop(iface);
-                        for cb in self
-                            .with_logical_address_queue
-                            .drain(0..)
-                            .collect::<Vec<_>>()
-                        {
+                        for cb in take(&mut self.with_logical_address_queue) {
                             let fut = cb(self);
                             let fut = Box::into_pin(fut);
                             let res = fut.await;
