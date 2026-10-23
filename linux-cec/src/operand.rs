@@ -3090,21 +3090,10 @@ pub enum ChannelId {
 
 impl OperandEncodable for ChannelId {
     fn to_bytes(&self, buf: &mut impl Extend<u8>) {
-        let number_format;
-        let high;
-        let low;
-        match self {
-            ChannelId::OnePart(part) => {
-                number_format = ChannelNumberFormat::Fmt1Part;
-                high = 0;
-                low = *part;
-            }
-            ChannelId::TwoPart(major, minor) => {
-                number_format = ChannelNumberFormat::Fmt2Part;
-                high = *major;
-                low = *minor;
-            }
-        }
+        let (number_format, high, low) = match self {
+            ChannelId::OnePart(part) => (ChannelNumberFormat::Fmt1Part, 0, *part),
+            ChannelId::TwoPart(major, minor) => (ChannelNumberFormat::Fmt2Part, *major, *minor),
+        };
         let number_format = u16::from(u8::from(number_format)) << 10;
         let high: u16 = number_format | high;
         high.to_bytes(buf);
