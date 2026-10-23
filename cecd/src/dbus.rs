@@ -493,7 +493,6 @@ impl CecDevice {
     }
 }
 
-#[allow(clippy::ptr_arg)] // zbus 6 doesn't let us use &[_] anymore
 #[interface(name = "com.steampowered.CecDaemon1.CecDevice1")]
 impl CecDevice {
     #[zbus(signal)]
@@ -569,9 +568,9 @@ impl CecDevice {
         Ok(self.device.lock().await.standby(target).await?)
     }
 
-    async fn press_user_control(&mut self, button: &Vec<u8>, target: u8) -> Result<()> {
+    async fn press_user_control(&mut self, button: Vec<u8>, target: u8) -> Result<()> {
         let log_addr = LogicalAddress::try_from_primitive(target)?;
-        let key = UiCommand::try_from_bytes(button)?;
+        let key = UiCommand::try_from_bytes(&button)?;
         if let Some((current_key, token, _)) = self.key_repeat.get(&target) {
             if &key == current_key {
                 return Ok(());
@@ -608,9 +607,9 @@ impl CecDevice {
         }
     }
 
-    async fn press_once_user_control(&mut self, button: &Vec<u8>, target: u8) -> Result<()> {
+    async fn press_once_user_control(&mut self, button: Vec<u8>, target: u8) -> Result<()> {
         let log_addr = LogicalAddress::try_from_primitive(target)?;
-        let key = UiCommand::try_from_bytes(button)?;
+        let key = UiCommand::try_from_bytes(&button)?;
         if let Some((_, token, _)) = self.key_repeat.get(&target) {
             token.cancel();
             let (current_key, _, handle) = self.key_repeat.remove(&target).unwrap();
@@ -697,9 +696,9 @@ impl CecDevice {
         self.cached_audio_log_addr
     }
 
-    async fn send_raw_message(&self, raw_message: &Vec<u8>, target: u8) -> Result<u32> {
+    async fn send_raw_message(&self, raw_message: Vec<u8>, target: u8) -> Result<u32> {
         let target = LogicalAddress::try_from_primitive(target)?;
-        let raw_message = Message::try_from_bytes(raw_message)?;
+        let raw_message = Message::try_from_bytes(&raw_message)?;
         Ok(self
             .device
             .lock()
@@ -710,13 +709,13 @@ impl CecDevice {
 
     async fn send_receive_raw_message(
         &self,
-        raw_message: &Vec<u8>,
+        raw_message: Vec<u8>,
         target: u8,
         opcode: u8,
         timeout: u16,
     ) -> Result<Vec<u8>> {
         let target = LogicalAddress::try_from_primitive(target)?;
-        let raw_message = Message::try_from_bytes(raw_message)?;
+        let raw_message = Message::try_from_bytes(&raw_message)?;
         let reply = self
             .device
             .lock()

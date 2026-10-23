@@ -787,7 +787,7 @@ mod test {
             initiator: u8,
             destination: u8,
             timestamp: u64,
-            message: &Vec<u8>,
+            message: Vec<u8>,
         ) -> fdo::Result<(bool, u8)> {
             self.last_message = Some(RemoteMessage {
                 device,
