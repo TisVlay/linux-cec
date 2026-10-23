@@ -24,11 +24,9 @@ use tokio::time::sleep;
 use tokio_stream::StreamExt;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
-use zbus::connection::Connection;
 use zbus::fdo::ObjectManager;
 use zbus::names::UniqueName;
-use zbus::proxy;
-use zbus::zvariant::ObjectPath;
+use zbus::{proxy, Connection, ObjectPath};
 
 use crate::config::{read_config_file, read_default_config, Config};
 use crate::dbus::{CecConfig, CecDevice, Daemon, PATH};
@@ -47,7 +45,7 @@ pub(crate) struct System {
     pub connection: Connection,
     pub channel: Sender<SystemMessage>,
     system_bus: Connection,
-    inhibit_fd: Option<zbus::zvariant::OwnedFd>,
+    inhibit_fd: Option<zbus::OwnedFd>,
     token: CancellationToken,
     devs: HashMap<PathBuf, CancellationToken>,
     standby: bool,
@@ -67,13 +65,7 @@ trait LoginManager {
 
     fn suspend(&self, interactive: bool) -> Result<()>;
 
-    fn inhibit(
-        &self,
-        what: &str,
-        who: &str,
-        why: &str,
-        mode: &str,
-    ) -> Result<zbus::zvariant::OwnedFd>;
+    fn inhibit(&self, what: &str, who: &str, why: &str, mode: &str) -> Result<zbus::OwnedFd>;
 }
 
 #[derive(Debug, Clone)]
@@ -755,8 +747,7 @@ mod test {
     use linux_cec::{LogicalAddress, PhysicalAddress};
     use std::time::Duration;
     use tokio::time::sleep;
-    use zbus::zvariant::OwnedObjectPath;
-    use zbus::{fdo, interface};
+    use zbus::{fdo, interface, OwnedObjectPath};
 
     use crate::testing::{setup_dbus_test, wait_timeout};
 
@@ -796,7 +787,7 @@ mod test {
             initiator: u8,
             destination: u8,
             timestamp: u64,
-            message: &[u8],
+            message: &Vec<u8>,
         ) -> fdo::Result<(bool, u8)> {
             self.last_message = Some(RemoteMessage {
                 device,
@@ -891,7 +882,8 @@ mod test {
         assert!(object_server
             .at(&path, MockMessageHandler::new())
             .await
-            .unwrap());
+            .unwrap()
+            .is_none());
         let unique_name = new_conn.unique_name().unwrap();
 
         assert!(test
@@ -922,7 +914,7 @@ mod test {
         let path = ObjectPath::try_from("/TestHandler").unwrap();
         let handler = MockMessageHandler::new();
         let mut rx = handler.channel.subscribe();
-        assert!(object_server.at(&path, handler).await.unwrap());
+        assert!(object_server.at(&path, handler).await.unwrap().is_none());
         let handler = object_server
             .interface::<_, MockMessageHandler>(&path)
             .await
@@ -964,7 +956,7 @@ mod test {
         let mut handler = MockMessageHandler::new();
         let mut rx = handler.channel.subscribe();
         handler.timeout = true;
-        assert!(object_server.at(&path, handler).await.unwrap());
+        assert!(object_server.at(&path, handler).await.unwrap().is_none());
         let unique_name = new_conn.unique_name().unwrap();
 
         assert!(test
@@ -1004,7 +996,7 @@ mod test {
         let mut handler = MockMessageHandler::new();
         let mut rx = handler.channel.subscribe();
         handler.abort = Some(AbortReason::Refused);
-        assert!(object_server.at(&path, handler).await.unwrap());
+        assert!(object_server.at(&path, handler).await.unwrap().is_none());
         let unique_name = new_conn.unique_name().unwrap();
 
         assert!(test
@@ -1045,7 +1037,8 @@ mod test {
         assert!(object_server
             .at(&path, MockMessageHandler::new())
             .await
-            .unwrap());
+            .unwrap()
+            .is_none());
         assert!(test
             .system
             .register_message_handler(Opcode::GetCecVersion, path.as_ref(), unique_name)
@@ -1056,7 +1049,8 @@ mod test {
         assert!(object_server
             .at(&path, MockMessageHandler::new())
             .await
-            .unwrap());
+            .unwrap()
+            .is_none());
         assert!(!test
             .system
             .register_message_handler(Opcode::GetCecVersion, path.as_ref(), unique_name)

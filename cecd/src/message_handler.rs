@@ -18,8 +18,7 @@ use tokio_stream::StreamExt;
 use tracing::warn;
 use zbus::fdo::DBusProxy;
 use zbus::names::{BusName, OwnedUniqueName, UniqueName};
-use zbus::zvariant::ObjectPath;
-use zbus::Connection;
+use zbus::{Connection, ObjectPath};
 
 use crate::system::SystemHandle;
 
@@ -35,8 +34,8 @@ impl<'proxy> MessageHandler<'proxy> {
         bus_name: &UniqueName<'b>,
     ) -> Result<MessageHandler<'proxy>> {
         let proxy = MessageHandler1Proxy::builder(connection)
-            .destination(BusName::Unique(bus_name.to_owned()))?
-            .path(object.to_owned())?
+            .destination(BusName::Unique(bus_name.to_owned()))
+            .path(object.to_owned())
             .build()
             .await?;
         Ok(MessageHandler::<'proxy> { proxy })

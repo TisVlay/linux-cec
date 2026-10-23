@@ -47,7 +47,7 @@ impl MockDBus {
             .ok_or(anyhow!("Failed to read address"))?;
 
         let address = Address::from_str(address.trim_end())?;
-        let connection = Builder::address(address.clone())?.build().await?;
+        let connection = Builder::address(address.clone()).build().await?;
 
         Ok(MockDBus {
             _connection: connection,
@@ -81,7 +81,7 @@ impl MockDBus {
     }
 
     pub async fn new_connection(&self) -> Result<Connection> {
-        Ok(Builder::address(self.address.clone())?.build().await?)
+        Ok(Builder::address(self.address.clone()).build().await?)
     }
 }
 

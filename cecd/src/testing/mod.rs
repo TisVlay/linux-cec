@@ -520,8 +520,8 @@ where
 
     debug!("Setting up DBus test");
     let dbus = MockDBus::new().await?;
-    let daemon_conn = Builder::address(dbus.address())?
-        .name("com.steampowered.CecDaemon1")?
+    let daemon_conn = Builder::address(dbus.address())
+        .name("com.steampowered.CecDaemon1")
         .build()
         .await?;
     let client_conn = dbus.new_connection().await?;

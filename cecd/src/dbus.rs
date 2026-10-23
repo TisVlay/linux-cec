@@ -24,8 +24,7 @@ use tracing::{debug, info, warn};
 use zbus::message::Header;
 use zbus::names::ErrorName;
 use zbus::object_server::SignalEmitter;
-use zbus::zvariant::{ObjectPath, OwnedObjectPath};
-use zbus::{fdo, interface, Connection, DBusError};
+use zbus::{fdo, interface, Connection, DBusError, ObjectPath, OwnedObjectPath};
 
 use crate::config::Config;
 use crate::device::{DeviceTask, KeyRepeat};
@@ -45,7 +44,7 @@ pub enum Error {
 
 impl DBusError for Error {
     fn create_reply(&self, header: &Header<'_>) -> zbus::Result<zbus::Message> {
-        let builder = zbus::Message::error(header, self.name())?;
+        let builder = zbus::Message::error(header, self.name());
         match self {
             Error::Cec(e) => builder.build(&(format!("{e}"))),
             Error::FDO(e) => builder.build(&(format!("{e}"))),
@@ -494,6 +493,7 @@ impl CecDevice {
     }
 }
 
+#[allow(clippy::ptr_arg)] // zbus 6 doesn't let us use &[_] anymore
 #[interface(name = "com.steampowered.CecDaemon1.CecDevice1")]
 impl CecDevice {
     #[zbus(signal)]
@@ -569,7 +569,7 @@ impl CecDevice {
         Ok(self.device.lock().await.standby(target).await?)
     }
 
-    async fn press_user_control(&mut self, button: &[u8], target: u8) -> Result<()> {
+    async fn press_user_control(&mut self, button: &Vec<u8>, target: u8) -> Result<()> {
         let log_addr = LogicalAddress::try_from_primitive(target)?;
         let key = UiCommand::try_from_bytes(button)?;
         if let Some((current_key, token, _)) = self.key_repeat.get(&target) {
@@ -608,7 +608,7 @@ impl CecDevice {
         }
     }
 
-    async fn press_once_user_control(&mut self, button: &[u8], target: u8) -> Result<()> {
+    async fn press_once_user_control(&mut self, button: &Vec<u8>, target: u8) -> Result<()> {
         let log_addr = LogicalAddress::try_from_primitive(target)?;
         let key = UiCommand::try_from_bytes(button)?;
         if let Some((_, token, _)) = self.key_repeat.get(&target) {
@@ -697,7 +697,7 @@ impl CecDevice {
         self.cached_audio_log_addr
     }
 
-    async fn send_raw_message(&self, raw_message: &[u8], target: u8) -> Result<u32> {
+    async fn send_raw_message(&self, raw_message: &Vec<u8>, target: u8) -> Result<u32> {
         let target = LogicalAddress::try_from_primitive(target)?;
         let raw_message = Message::try_from_bytes(raw_message)?;
         Ok(self
@@ -710,7 +710,7 @@ impl CecDevice {
 
     async fn send_receive_raw_message(
         &self,
-        raw_message: &[u8],
+        raw_message: &Vec<u8>,
         target: u8,
         opcode: u8,
         timeout: u16,

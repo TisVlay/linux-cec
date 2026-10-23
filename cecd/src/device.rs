@@ -23,8 +23,7 @@ use tokio::time::{sleep, sleep_until, Instant};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
 use zbus::object_server::InterfaceRef;
-use zbus::zvariant::OwnedObjectPath;
-use zbus::Connection;
+use zbus::{Connection, OwnedObjectPath};
 
 use crate::config::RepeatType;
 use crate::dbus::{CecDevice, CecDeviceSignals};
@@ -2174,7 +2173,6 @@ mod test {
 
         let proxy = CecDevice1Proxy::builder(&test.connection)
             .path("/com/steampowered/CecDaemon1/Devices/Null")
-            .unwrap()
             .build()
             .await
             .unwrap();
@@ -2219,7 +2217,6 @@ mod test {
 
         let proxy = CecDevice1Proxy::builder(&test.connection)
             .path("/com/steampowered/CecDaemon1/Devices/Null")
-            .unwrap()
             .build()
             .await
             .unwrap();
@@ -2233,7 +2230,6 @@ mod test {
 
         let proxy = CecDevice1Proxy::builder(&test.connection)
             .path("/com/steampowered/CecDaemon1/Devices/Null")
-            .unwrap()
             .build()
             .await
             .unwrap();
@@ -2272,7 +2268,6 @@ mod test {
 
         let proxy = CecDevice1Proxy::builder(&test.connection)
             .path("/com/steampowered/CecDaemon1/Devices/Null")
-            .unwrap()
             .build()
             .await
             .unwrap();
