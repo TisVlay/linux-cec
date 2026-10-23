@@ -5,7 +5,7 @@
 
 use anyhow::Result;
 use linux_cec::device::ConnectorInfo;
-use std::os::fd::AsFd;
+use std::os::fd::AsRawFd;
 use tokio::io::unix::AsyncFd;
 use tokio::io::Interest;
 use tokio::select;
@@ -76,8 +76,12 @@ pub(crate) async fn udev_hotplug(system: SystemHandle, token: CancellationToken)
         .listen()?;
     let mut cec_iter = cec_monitor.iter();
     let mut drm_iter = drm_monitor.iter();
-    let cec_fd = AsyncFd::new(cec_monitor.as_fd())?;
-    let drm_fd = AsyncFd::new(drm_monitor.as_fd())?;
+    let cec_fd = cec_monitor.as_raw_fd();
+    let cec_fd =
+        unsafe { AsyncFd::register_with_interest(cec_fd, Interest::READABLE | Interest::ERROR)? };
+    let drm_fd = drm_monitor.as_raw_fd();
+    let drm_fd =
+        unsafe { AsyncFd::register_with_interest(drm_fd, Interest::READABLE | Interest::ERROR)? };
     loop {
         select! {
             () = token.cancelled() => break Ok(()),
