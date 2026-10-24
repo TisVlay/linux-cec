@@ -17,20 +17,20 @@ use num_enum::{TryFromPrimitive, TryFromPrimitiveError};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use tokio::fs::canonicalize;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
-use tokio::task::{spawn, JoinError, JoinHandle};
+use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
+use tokio::task::{JoinError, JoinHandle, spawn};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 use zbus::message::Header;
 use zbus::names::ErrorName;
 use zbus::object_server::SignalEmitter;
-use zbus::{fdo, interface, Connection, DBusError, ObjectPath, OwnedObjectPath};
+use zbus::{Connection, DBusError, ObjectPath, OwnedObjectPath, fdo, interface};
 
+use crate::ArcDevice;
 use crate::config::Config;
 use crate::device::{DeviceTask, KeyRepeat};
 use crate::system::{SystemHandle, SystemMessage};
 use crate::uinput::UInputDevice;
-use crate::ArcDevice;
 
 #[cfg(test)]
 use crate::testing::AsyncDevice;
@@ -163,58 +163,58 @@ impl CecConfig {
         let old_config = self.cached_config.clone();
         self.cached_config = new_config;
 
-        if self.cached_config.osd_name != old_config.osd_name {
-            if let Err(e) = self.osd_name_changed(emitter).await {
-                warn!("Failed to emit OsdName changed: {e}");
-            }
+        if self.cached_config.osd_name != old_config.osd_name
+            && let Err(e) = self.osd_name_changed(emitter).await
+        {
+            warn!("Failed to emit OsdName changed: {e}");
         }
 
-        if self.cached_config.vendor_id != old_config.vendor_id {
-            if let Err(e) = self.vendor_id_changed(emitter).await {
-                warn!("Failed to emit VendorId changed: {e}");
-            }
+        if self.cached_config.vendor_id != old_config.vendor_id
+            && let Err(e) = self.vendor_id_changed(emitter).await
+        {
+            warn!("Failed to emit VendorId changed: {e}");
         }
 
-        if self.cached_config.logical_address != old_config.logical_address {
-            if let Err(e) = self.logical_address_changed(emitter).await {
-                warn!("Failed to emit LogicalAddress changed: {e}");
-            }
+        if self.cached_config.logical_address != old_config.logical_address
+            && let Err(e) = self.logical_address_changed(emitter).await
+        {
+            warn!("Failed to emit LogicalAddress changed: {e}");
         }
 
-        if self.cached_config.mappings != old_config.mappings {
-            if let Err(e) = self.mappings_changed(emitter).await {
-                warn!("Failed to emit Mappings changed: {e}");
-            }
+        if self.cached_config.mappings != old_config.mappings
+            && let Err(e) = self.mappings_changed(emitter).await
+        {
+            warn!("Failed to emit Mappings changed: {e}");
         }
 
-        if self.cached_config.wake_tv != old_config.wake_tv {
-            if let Err(e) = self.wake_tv_changed(emitter).await {
-                warn!("Failed to emit WakeTv changed: {e}");
-            }
+        if self.cached_config.wake_tv != old_config.wake_tv
+            && let Err(e) = self.wake_tv_changed(emitter).await
+        {
+            warn!("Failed to emit WakeTv changed: {e}");
         }
 
-        if self.cached_config.suspend_tv != old_config.suspend_tv {
-            if let Err(e) = self.suspend_tv_changed(emitter).await {
-                warn!("Failed to emit SuspendTv changed: {e}");
-            }
+        if self.cached_config.suspend_tv != old_config.suspend_tv
+            && let Err(e) = self.suspend_tv_changed(emitter).await
+        {
+            warn!("Failed to emit SuspendTv changed: {e}");
         }
 
-        if self.cached_config.allow_standby != old_config.allow_standby {
-            if let Err(e) = self.allow_standby_changed(emitter).await {
-                warn!("Failed to emit AllowStandby changed: {e}");
-            }
+        if self.cached_config.allow_standby != old_config.allow_standby
+            && let Err(e) = self.allow_standby_changed(emitter).await
+        {
+            warn!("Failed to emit AllowStandby changed: {e}");
         }
 
-        if self.cached_config.uinput != old_config.uinput {
-            if let Err(e) = self.uinput_changed(emitter).await {
-                warn!("Failed to emit Uinput changed: {e}");
-            }
+        if self.cached_config.uinput != old_config.uinput
+            && let Err(e) = self.uinput_changed(emitter).await
+        {
+            warn!("Failed to emit Uinput changed: {e}");
         }
 
-        if self.cached_config.request_active_source != old_config.request_active_source {
-            if let Err(e) = self.request_active_source_changed(emitter).await {
-                warn!("Failed to emit RequestActiveSource changed: {e}");
-            }
+        if self.cached_config.request_active_source != old_config.request_active_source
+            && let Err(e) = self.request_active_source_changed(emitter).await
+        {
+            warn!("Failed to emit RequestActiveSource changed: {e}");
         }
     }
 }
@@ -741,11 +741,11 @@ mod test {
     use super::*;
 
     use crate::system::System;
-    use crate::testing::{setup_basic_test, setup_dbus_test, DBusTest};
+    use crate::testing::{DBusTest, setup_basic_test, setup_dbus_test};
     use cecd_proxy::Config1Proxy;
     use input_linux::Key;
-    use linux_cec::device::Capabilities;
     use linux_cec::VendorId;
+    use linux_cec::device::Capabilities;
     use nix::unistd::gethostname;
     use tokio_stream::StreamExt;
 

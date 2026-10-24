@@ -5,14 +5,14 @@
 
 use anyhow::Result;
 use cecd_proxy::MessageHandler1Proxy;
+use linux_cec::LogicalAddress;
 use linux_cec::device::Envelope;
 use linux_cec::message::Message;
 use linux_cec::operand::AbortReason;
-use linux_cec::LogicalAddress;
 use std::time::Duration;
 use tokio::select;
-use tokio::sync::oneshot::{channel, Sender};
-use tokio::task::{spawn, JoinHandle};
+use tokio::sync::oneshot::{Sender, channel};
+use tokio::task::{JoinHandle, spawn};
 use tokio::time::sleep;
 use tokio_stream::StreamExt;
 use tracing::warn;

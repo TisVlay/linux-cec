@@ -6,8 +6,8 @@
 use anyhow::Result;
 use linux_cec::device::ConnectorInfo;
 use std::os::fd::AsRawFd;
-use tokio::io::unix::AsyncFd;
 use tokio::io::Interest;
+use tokio::io::unix::AsyncFd;
 use tokio::select;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, trace};

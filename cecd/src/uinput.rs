@@ -3,17 +3,17 @@
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
-use anyhow::{ensure, Result};
-#[cfg(not(test))]
-use input_linux::sys::BUS_CEC;
+use anyhow::{Result, ensure};
 #[cfg(test)]
 use input_linux::InputEvent;
+#[cfg(not(test))]
+use input_linux::sys::BUS_CEC;
 #[cfg(not(test))]
 use input_linux::{EventKind, InputId, UInputHandle};
 use input_linux::{EventTime, Key, KeyEvent, KeyState, SynchronizeEvent};
 use linux_cec::operand::UiCommand;
 #[cfg(not(test))]
-use nix::fcntl::{fcntl, FcntlArg, OFlag};
+use nix::fcntl::{FcntlArg, OFlag, fcntl};
 use std::collections::HashMap;
 #[cfg(test)]
 use std::collections::VecDeque;

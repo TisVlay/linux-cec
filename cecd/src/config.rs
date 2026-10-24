@@ -177,10 +177,10 @@ async fn read_config_directory<P: AsRef<Path> + Sync + Send>(
     let mut entries = Vec::new();
     while let Some(entry) = dir.next_entry().await? {
         let path = entry.path();
-        if let Some(ext) = path.extension().and_then(|ext| ext.to_str()) {
-            if extensions.contains(&ext) {
-                entries.push(path);
-            }
+        if let Some(ext) = path.extension().and_then(|ext| ext.to_str())
+            && extensions.contains(&ext)
+        {
+            entries.push(path);
         }
     }
     entries.sort();

@@ -3,21 +3,21 @@
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
-use anyhow::{ensure, Result};
+use anyhow::{Result, ensure};
 use input_linux::Key;
 use linux_cec::device::{Capabilities, ConnectorInfo};
 use linux_cec::operand::UiCommand;
 use linux_cec::{self, FollowerMode, InitiatorMode, LogicalAddressType, PhysicalAddress, VendorId};
 use nix::errno::Errno;
 use nix::unistd::gethostname;
-use std::collections::hash_map::{Entry, HashMap};
 use std::collections::HashSet;
+use std::collections::hash_map::{Entry, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::fs::read_dir;
 use tokio::spawn;
-use tokio::sync::broadcast::{channel, Receiver, Sender};
+use tokio::sync::broadcast::{Receiver, Sender, channel};
 use tokio::sync::{Mutex, MutexGuard};
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
@@ -26,13 +26,13 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 use zbus::fdo::ObjectManager;
 use zbus::names::UniqueName;
-use zbus::{proxy, Connection, ObjectPath};
+use zbus::{Connection, ObjectPath, proxy};
 
-use crate::config::{read_config_file, read_default_config, Config};
+use crate::ArcDevice;
+use crate::config::{Config, read_config_file, read_default_config};
 use crate::dbus::{CecConfig, CecDevice, Daemon, PATH};
 use crate::device::DrmConnector;
 use crate::message_handler::{MessageHandler, MessageHandlerTask};
-use crate::ArcDevice;
 
 const RESUME_WAKE_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -747,7 +747,7 @@ mod test {
     use linux_cec::{LogicalAddress, PhysicalAddress};
     use std::time::Duration;
     use tokio::time::sleep;
-    use zbus::{fdo, interface, OwnedObjectPath};
+    use zbus::{OwnedObjectPath, fdo, interface};
 
     use crate::testing::{setup_dbus_test, wait_timeout};
 
@@ -879,18 +879,21 @@ mod test {
 
         let object_server = new_conn.object_server();
         let path = ObjectPath::try_from("/TestHandler").unwrap();
-        assert!(object_server
-            .at(&path, MockMessageHandler::new())
-            .await
-            .unwrap()
-            .is_none());
+        assert!(
+            object_server
+                .at(&path, MockMessageHandler::new())
+                .await
+                .unwrap()
+                .is_none()
+        );
         let unique_name = new_conn.unique_name().unwrap();
 
-        assert!(test
-            .system
-            .register_message_handler(Opcode::GetCecVersion, path.as_ref(), unique_name)
-            .await
-            .unwrap());
+        assert!(
+            test.system
+                .register_message_handler(Opcode::GetCecVersion, path.as_ref(), unique_name)
+                .await
+                .unwrap()
+        );
         assert_eq!(
             test.system
                 .list_handled_messages()
@@ -921,11 +924,12 @@ mod test {
             .unwrap();
         let unique_name = new_conn.unique_name().unwrap();
 
-        assert!(test
-            .system
-            .register_message_handler(Opcode::GetCecVersion, path.as_ref(), unique_name)
-            .await
-            .unwrap());
+        assert!(
+            test.system
+                .register_message_handler(Opcode::GetCecVersion, path.as_ref(), unique_name)
+                .await
+                .unwrap()
+        );
 
         let notify = test
             .dev
@@ -959,11 +963,12 @@ mod test {
         assert!(object_server.at(&path, handler).await.unwrap().is_none());
         let unique_name = new_conn.unique_name().unwrap();
 
-        assert!(test
-            .system
-            .register_message_handler(Opcode::GetCecVersion, path.as_ref(), unique_name)
-            .await
-            .unwrap());
+        assert!(
+            test.system
+                .register_message_handler(Opcode::GetCecVersion, path.as_ref(), unique_name)
+                .await
+                .unwrap()
+        );
 
         let notify = test
             .dev
@@ -999,11 +1004,12 @@ mod test {
         assert!(object_server.at(&path, handler).await.unwrap().is_none());
         let unique_name = new_conn.unique_name().unwrap();
 
-        assert!(test
-            .system
-            .register_message_handler(Opcode::GetCecVersion, path.as_ref(), unique_name)
-            .await
-            .unwrap());
+        assert!(
+            test.system
+                .register_message_handler(Opcode::GetCecVersion, path.as_ref(), unique_name)
+                .await
+                .unwrap()
+        );
 
         let notify = test
             .dev
@@ -1034,28 +1040,35 @@ mod test {
         let unique_name = new_conn.unique_name().unwrap();
 
         let path = ObjectPath::try_from("/TestHandler").unwrap();
-        assert!(object_server
-            .at(&path, MockMessageHandler::new())
-            .await
-            .unwrap()
-            .is_none());
-        assert!(test
-            .system
-            .register_message_handler(Opcode::GetCecVersion, path.as_ref(), unique_name)
-            .await
-            .unwrap());
+        assert!(
+            object_server
+                .at(&path, MockMessageHandler::new())
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            test.system
+                .register_message_handler(Opcode::GetCecVersion, path.as_ref(), unique_name)
+                .await
+                .unwrap()
+        );
 
         let path = ObjectPath::try_from("/TestHandler2").unwrap();
-        assert!(object_server
-            .at(&path, MockMessageHandler::new())
-            .await
-            .unwrap()
-            .is_none());
-        assert!(!test
-            .system
-            .register_message_handler(Opcode::GetCecVersion, path.as_ref(), unique_name)
-            .await
-            .unwrap());
+        assert!(
+            object_server
+                .at(&path, MockMessageHandler::new())
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            !test
+                .system
+                .register_message_handler(Opcode::GetCecVersion, path.as_ref(), unique_name)
+                .await
+                .unwrap()
+        );
 
         assert_eq!(
             test.system
@@ -1066,11 +1079,12 @@ mod test {
             &[Opcode::GetCecVersion as u8]
         );
 
-        assert!(test
-            .system
-            .register_message_handler(Opcode::CecVersion, path.as_ref(), unique_name)
-            .await
-            .unwrap());
+        assert!(
+            test.system
+                .register_message_handler(Opcode::CecVersion, path.as_ref(), unique_name)
+                .await
+                .unwrap()
+        );
 
         assert_eq!(
             test.system.list_handled_messages().await,

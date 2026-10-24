@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use libc::pid_t;
 use nix::sys::signal;
 use nix::unistd::Pid;
@@ -12,8 +12,8 @@ use std::str::FromStr;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
-use zbus::connection::{Builder, Connection};
 use zbus::Address;
+use zbus::connection::{Builder, Connection};
 
 pub struct MockDBus {
     _connection: Connection,

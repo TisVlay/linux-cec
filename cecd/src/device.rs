@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use linux_cec::device::{ConnectorInfo, Envelope, MessageData, PollResult, PollStatus};
 use linux_cec::message::{Message, Opcode};
 use linux_cec::operand::{AbortReason, OperandEncodable, PowerStatus, UiCommand};
@@ -17,9 +17,9 @@ use std::time::Duration;
 use tokio::fs::{read, read_dir, read_to_string};
 use tokio::select;
 use tokio::sync::broadcast::Receiver;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use tokio::task::spawn;
-use tokio::time::{sleep, sleep_until, Instant};
+use tokio::time::{Instant, sleep, sleep_until};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
 use zbus::object_server::InterfaceRef;
@@ -600,10 +600,10 @@ impl DeviceTask {
             SystemMessage::ReconfigureConnector(conn_info) => {
                 match conn_info {
                     ConnectorInfo::DrmConnector { .. } => {
-                        if let Some(connector) = self.connector.as_ref() {
-                            if connector.to_connector_info().await? != conn_info {
-                                return Ok(());
-                            }
+                        if let Some(connector) = self.connector.as_ref()
+                            && connector.to_connector_info().await? != conn_info
+                        {
+                            return Ok(());
                         }
                     }
                     ConnectorInfo::None => (),
@@ -676,10 +676,9 @@ impl DeviceTask {
             if let Err(e) = device
                 .tx_message(&Message::RequestActiveSource, LogicalAddress::Broadcast)
                 .await
+                && !matches!(e, Error::TxError(TxError::Timeout))
             {
-                if !matches!(e, Error::TxError(TxError::Timeout)) {
-                    info!("Couldn't query active source: {e}");
-                }
+                info!("Couldn't query active source: {e}");
             }
         });
         self.set_active(true).await?;
@@ -704,10 +703,9 @@ impl DeviceTask {
                     LogicalAddress::AudioSystem,
                 )
                 .await
+                && !matches!(e, Error::TxError(TxError::Nack))
             {
-                if !matches!(e, Error::TxError(TxError::Nack)) {
-                    info!("Couldn't query audio system: {e}");
-                }
+                info!("Couldn't query audio system: {e}");
             }
         });
     }
@@ -962,10 +960,10 @@ impl UInputKeyTask {
                 if up_debounce.is_some() {
                     return Ok(());
                 }
-                if let Some(down_debounce) = self.down_debounce {
-                    if down_debounce > now {
-                        return Ok(());
-                    }
+                if let Some(down_debounce) = self.down_debounce
+                    && down_debounce > now
+                {
+                    return Ok(());
                 }
                 if let Some(uinput) = self.interface.get_mut().await.uinput.as_mut() {
                     return self.repeat(uinput).await;
@@ -1065,7 +1063,7 @@ mod test {
 
     use crate::config::Config;
     use crate::testing::{
-        rx_message, setup_basic_test, setup_dbus_test, tx_message, wait_timeout, DBusTest,
+        DBusTest, rx_message, setup_basic_test, setup_dbus_test, tx_message, wait_timeout,
     };
 
     fn is_key_event(uinput: &mut UInputDevice, key: Key, state: KeyState) -> Result<()> {
@@ -2910,34 +2908,42 @@ mod test {
 
     #[tokio::test]
     async fn test_drm_connector_from_drm_path_disconnected() {
-        assert!(DrmConnector::from_drm_path("data/test/card1-DP-1")
-            .await
-            .unwrap()
-            .is_none());
+        assert!(
+            DrmConnector::from_drm_path("data/test/card1-DP-1")
+                .await
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[tokio::test]
     async fn test_drm_connector_from_drm_path_no_edid() {
-        assert!(DrmConnector::from_drm_path("data/test/card1-DP-2")
-            .await
-            .unwrap()
-            .is_none());
+        assert!(
+            DrmConnector::from_drm_path("data/test/card1-DP-2")
+                .await
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[tokio::test]
     async fn test_drm_connector_from_drm_path_no_phys_addr() {
-        assert!(DrmConnector::from_drm_path("data/test/card1-HDMI-A-1")
-            .await
-            .unwrap()
-            .is_none());
+        assert!(
+            DrmConnector::from_drm_path("data/test/card1-HDMI-A-1")
+                .await
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[tokio::test]
     async fn test_drm_connector_from_drm_path_invalid_phys_addr() {
-        assert!(DrmConnector::from_drm_path("data/test/card1-HDMI-A-2")
-            .await
-            .unwrap()
-            .is_none());
+        assert!(
+            DrmConnector::from_drm_path("data/test/card1-HDMI-A-2")
+                .await
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[tokio::test]
@@ -2956,11 +2962,13 @@ mod test {
 
     #[tokio::test]
     async fn test_drm_connector_from_drm_path_invalid_format() {
-        assert!(DrmConnector::from_drm_path("data/test/cardZ-DP-1")
-            .await
-            .unwrap_err()
-            .downcast::<ParseIntError>()
-            .is_ok());
+        assert!(
+            DrmConnector::from_drm_path("data/test/cardZ-DP-1")
+                .await
+                .unwrap_err()
+                .downcast::<ParseIntError>()
+                .is_ok()
+        );
     }
 
     #[tokio::test]

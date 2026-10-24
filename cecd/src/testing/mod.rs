@@ -24,24 +24,24 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::select;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio::sync::{Mutex, Notify, RwLock};
 use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
 use tracing::dispatcher::DefaultGuard;
 use tracing::{debug, subscriber};
 use tracing_subscriber::prelude::*;
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt};
 use zbus::connection::Builder;
 use zbus::names::OwnedErrorName;
-use zbus::{proxy, Connection};
+use zbus::{Connection, proxy};
 
 pub(crate) mod dbus;
 
+use crate::ArcDevice;
 use crate::config::Config;
 use crate::system::{System, SystemHandle};
 pub(crate) use crate::testing::dbus::MockDBus;
-use crate::ArcDevice;
 
 #[derive(Clone, Debug)]
 struct DeviceState {
