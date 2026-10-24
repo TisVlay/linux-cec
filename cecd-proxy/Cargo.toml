@@ -11,4 +11,4 @@ keywords = ["cec"]
 categories = ["hardware-support"]
 
 [dependencies]
-zbus = { version = "6", default-features = false, features = ["tokio"] }
+zbus = { version = "6", default-features = false, features = ["proxy"] }
