@@ -1,6 +1,9 @@
 /*
  * Copyright © 2024 Valve Software
  * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
+ * Modified 2026-10-25 by the TisVlay project: added the logical-address
+ * flags getter and setter.
  */
 
 use linux_cec_sys::structs::{cec_caps, cec_msg};
@@ -15,7 +18,8 @@ use tokio::fs::OpenOptions;
 use tokio::sync::oneshot;
 
 use crate::device::{
-    Capabilities, ConnectorInfo, Device, DevicePoller, Envelope, PollResult, PollStatus,
+    Capabilities, ConnectorInfo, Device, DevicePoller, Envelope, LogicalAddressFlags, PollResult,
+    PollStatus,
 };
 use crate::message::{Message, Opcode};
 use crate::operand::UiCommand;
@@ -64,6 +68,8 @@ enum DeviceCommand {
     SetOsdName(String, ResultChannel<()>),
     GetVendorId(ResultChannel<Option<VendorId>>),
     SetVendorId(Option<VendorId>, ResultChannel<()>),
+    GetLogicalAddressFlags(ResultChannel<LogicalAddressFlags>),
+    SetLogicalAddressFlags(LogicalAddressFlags, ResultChannel<()>),
     TransmitMessage(Message, LogicalAddress, ResultChannel<u32>),
     TransmitRawMessage(cec_msg, ResultChannel<cec_msg>),
     TransmitReceiveMessage(
@@ -208,6 +214,14 @@ impl AsyncDevice {
 
     pub async fn set_vendor_id(&self, vendor_id: Option<VendorId>) -> Result<()> {
         relay! { self, SetVendorId => vendor_id }
+    }
+
+    pub async fn get_logical_address_flags(&self) -> Result<LogicalAddressFlags> {
+        relay! { self, GetLogicalAddressFlags }
+    }
+
+    pub async fn set_logical_address_flags(&self, flags: LogicalAddressFlags) -> Result<()> {
+        relay! { self, SetLogicalAddressFlags => flags }
     }
 
     pub async fn tx_message(&self, message: &Message, destination: LogicalAddress) -> Result<u32> {
@@ -384,6 +398,12 @@ impl DeviceThread {
                 }
                 DeviceCommand::SetVendorId(vendor_id, tx) => {
                     let _ = tx.send(self.device.set_vendor_id(vendor_id));
+                }
+                DeviceCommand::GetLogicalAddressFlags(tx) => {
+                    let _ = tx.send(self.device.get_logical_address_flags());
+                }
+                DeviceCommand::SetLogicalAddressFlags(flags, tx) => {
+                    let _ = tx.send(self.device.set_logical_address_flags(flags));
                 }
                 DeviceCommand::TransmitMessage(message, dest, tx) => {
                     let _ = tx.send(self.device.tx_message(&message, dest));

@@ -1,6 +1,9 @@
 /*
  * Copyright © 2024 Valve Software
  * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
+ * Modified 2026-10-25 by the TisVlay project: added the logical-address
+ * flags getter and setter.
  */
 
 //! Hardware devices interfaces
@@ -34,6 +37,7 @@ use tinyvec::ArrayVec;
 use tracing::{debug, trace, warn};
 
 pub use linux_cec_sys::structs::CEC_CAP as Capabilities;
+pub use linux_cec_sys::structs::CEC_LOG_ADDRS_FL as LogicalAddressFlags;
 pub use nix::poll::PollTimeout;
 
 use crate::ioctls::CecMessageHandlingMode;
@@ -652,6 +656,26 @@ impl Device {
             debug!("Clearing vendor ID");
             self.internal_log_addrs.vendor_id = SysVendorId::default();
         }
+        Ok(())
+    }
+
+    /// Get the [`LogicalAddressFlags`] of the device's current logical
+    /// address configuration.
+    pub fn get_logical_address_flags(&mut self) -> Result<LogicalAddressFlags> {
+        unsafe {
+            adapter_get_logical_addresses(self.file.as_raw_fd(), &mut self.internal_log_addrs)?;
+        }
+        Ok(self.internal_log_addrs.flags)
+    }
+
+    /// Set the [`LogicalAddressFlags`] of the device, such as
+    /// [`LogicalAddressFlags::ALLOW_RC_PASSTHRU`], which has the kernel pass
+    /// received remote control key presses to its RC device. You must call
+    /// this function *before* calling [`Device::set_logical_addresses`].
+    pub fn set_logical_address_flags(&mut self, flags: LogicalAddressFlags) -> Result<()> {
+        #[cfg(feature = "tracing")]
+        debug!("Setting logical address flags to {flags:?}");
+        self.internal_log_addrs.flags = flags;
         Ok(())
     }
 
