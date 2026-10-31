@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
  * Modified 2026-10-25 by the TisVlay project: added the logical-address
- * flags getter and setter.
+ * flags getter and setter. Modified 2026-10-31: get_logical_addresses
+ * skips slots without a claimed address.
  */
 
 //! Hardware devices interfaces
@@ -11,7 +12,8 @@
 use linux_cec_sys::constants::{
     CEC_CONNECTOR_TYPE_DRM, CEC_CONNECTOR_TYPE_NO_CONNECTOR, CEC_EVENT_LOST_MSGS,
     CEC_EVENT_PIN_5V_HIGH, CEC_EVENT_PIN_5V_LOW, CEC_EVENT_PIN_CEC_HIGH, CEC_EVENT_PIN_CEC_LOW,
-    CEC_EVENT_PIN_HPD_HIGH, CEC_EVENT_PIN_HPD_LOW, CEC_EVENT_STATE_CHANGE, CEC_MAX_LOG_ADDRS,
+    CEC_EVENT_PIN_HPD_HIGH, CEC_EVENT_PIN_HPD_LOW, CEC_EVENT_STATE_CHANGE, CEC_LOG_ADDR_INVALID,
+    CEC_MAX_LOG_ADDRS,
 };
 use linux_cec_sys::ioctls::{
     adapter_get_capabilities, adapter_get_connector_info, adapter_get_logical_addresses,
@@ -417,6 +419,51 @@ pub enum ConnectorInfo {
     },
 }
 
+/// The addresses claimed in `log_addrs`, skipping the slots the kernel marks
+/// [`CEC_LOG_ADDR_INVALID`]: no address claimed for that slot yet, or at all.
+fn claimed_logical_addresses(log_addrs: &cec_log_addrs) -> Result<Vec<LogicalAddress>> {
+    let mut vec = Vec::new();
+    let slots = usize::from(log_addrs.num_log_addrs);
+    for &address in log_addrs.log_addr.iter().take(slots) {
+        if u16::from(address) == CEC_LOG_ADDR_INVALID {
+            continue;
+        }
+        vec.push(address.try_into()?);
+    }
+    Ok(vec)
+}
+
+#[cfg(test)]
+mod test_claimed_logical_addresses {
+    use super::*;
+
+    fn log_addrs(slots: &[u8]) -> cec_log_addrs {
+        let mut log_addrs = cec_log_addrs::default();
+        log_addrs.num_log_addrs = slots.len() as u8;
+        log_addrs.log_addr[..slots.len()].copy_from_slice(slots);
+        log_addrs
+    }
+
+    #[test]
+    fn test_claimed() {
+        let claimed = claimed_logical_addresses(&log_addrs(&[0x8])).unwrap();
+        assert_eq!(claimed, [LogicalAddress::PlaybackDevice2]);
+    }
+
+    #[test]
+    fn test_unclaimed() {
+        let claimed = claimed_logical_addresses(&log_addrs(&[0xff])).unwrap();
+        assert!(claimed.is_empty());
+        let claimed = claimed_logical_addresses(&log_addrs(&[0x4, 0xff])).unwrap();
+        assert_eq!(claimed, [LogicalAddress::PlaybackDevice1]);
+    }
+
+    #[test]
+    fn test_invalid() {
+        assert!(claimed_logical_addresses(&log_addrs(&[0x20])).is_err());
+    }
+}
+
 impl Device {
     /// Open a CEC device from a given `path`. Generally, this will be of the
     /// form `/dev/cecX`.
@@ -533,17 +580,14 @@ impl Device {
         Ok(())
     }
 
-    /// Get the currently configured [`LogicalAddress`]es of the device.
+    /// Get the currently configured [`LogicalAddress`]es of the device. A slot
+    /// the kernel hasn't claimed an address for (the claim is still in
+    /// progress, or failed) is left out.
     pub fn get_logical_addresses(&mut self) -> Result<Vec<LogicalAddress>> {
         unsafe {
             adapter_get_logical_addresses(self.file.as_raw_fd(), &mut self.internal_log_addrs)?;
         }
-
-        let mut vec = Vec::new();
-        for index in 0..self.internal_log_addrs.num_log_addrs {
-            vec.push(self.internal_log_addrs.log_addr[index as usize].try_into()?);
-        }
-        Ok(vec)
+        claimed_logical_addresses(&self.internal_log_addrs)
     }
 
     /// Set the [`LogicalAddress`]es of the device. This function will only work if the capability
